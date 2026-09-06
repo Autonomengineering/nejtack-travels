@@ -228,6 +228,14 @@ function renderToilets() {
     node.querySelector(".rank-badge").textContent = `#${index + 1}`;
     node.querySelector(".place-name").textContent = toilet.place;
     node.querySelector(".review-date").textContent = new Intl.DateTimeFormat("sv-SE", { day: "numeric", month: "short", year: "numeric" }).format(toilet.createdAt);
+    const personalRating = node.querySelector(".personal-rating");
+    if (Number.isFinite(toilet.rating)) {
+      const rating = Math.min(5, Math.max(0, Math.round(toilet.rating * 2) / 2));
+      personalRating.hidden = false;
+      personalRating.querySelector(".rating-stars").style.setProperty("--fill", `${rating * 20}%`);
+      personalRating.querySelector(".rating-number").textContent = `${formatRating(rating)} / 5`;
+      personalRating.setAttribute("aria-label", `Personligt betyg ${formatRating(rating)} av 5`);
+    }
     node.querySelector(".like-count").textContent = toilet.likes;
     likeButton.classList.toggle("is-liked", state.liked.has(toilet.id));
     likeButton.setAttribute("aria-label", `${state.liked.has(toilet.id) ? "Ta bort gilla-markering från" : "Gilla"} ${toilet.place}`);
@@ -246,7 +254,18 @@ function renderToilets() {
 const uploadDialog = document.querySelector("#upload-dialog");
 const uploadForm = document.querySelector("#upload-form");
 const photoInput = document.querySelector("#toilet-photo");
+const ratingInput = document.querySelector("#toilet-rating");
 const adDialog = document.querySelector("#ad-dialog");
+
+function formatRating(rating) {
+  return rating.toFixed(1).replace(".", ",").replace(",0", "");
+}
+
+function updateRatingPreview() {
+  const rating = ratingInput.valueAsNumber;
+  document.querySelector("#rating-preview-stars").style.setProperty("--fill", `${rating * 20}%`);
+  document.querySelector("#rating-value").textContent = `${formatRating(rating)} / 5`;
+}
 
 function showRandomAd() {
   if ((location.hash.replace("#", "") || "mal") !== "mal" || adDialog.open) return;
@@ -272,6 +291,7 @@ function closeUpload() {
   uploadDialog.close();
   uploadForm.reset();
   document.querySelector("#file-label").textContent = "VÄLJ TOALETTBILD";
+  updateRatingPreview();
 }
 
 document.querySelector("#goal-form").addEventListener("submit", (event) => {
@@ -304,13 +324,15 @@ uploadDialog.addEventListener("click", (event) => {
 photoInput.addEventListener("change", () => {
   document.querySelector("#file-label").textContent = photoInput.files?.[0]?.name || "VÄLJ TOALETTBILD";
 });
+ratingInput.addEventListener("input", updateRatingPreview);
 
 uploadForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const photo = photoInput.files?.[0];
   const place = document.querySelector("#toilet-place").value.trim();
+  const rating = ratingInput.valueAsNumber;
   if (!photo || !place) return;
-  const toilet = { id: crypto.randomUUID(), place, photo, likes: 0, createdAt: Date.now() };
+  const toilet = { id: crypto.randomUUID(), place, photo, rating, likes: 0, createdAt: Date.now() };
   await storageAdapter.addToilet(toilet);
   state.toilets.push(toilet);
   closeUpload();
@@ -320,6 +342,7 @@ uploadForm.addEventListener("submit", async (event) => {
 window.addEventListener("hashchange", route);
 route();
 renderGoals();
+updateRatingPreview();
 updatePrayerTimer();
 window.setInterval(updatePrayerTimer, 250);
 storageAdapter.listToilets().then((toilets) => {

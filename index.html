@@ -119,6 +119,25 @@
         <label class="field-label" for="toilet-place">PLATS</label>
         <input id="toilet-place" name="place" maxlength="60" placeholder="Ex. Bar Central, Prag" required />
 
+        <label class="field-label" for="toilet-rating">PERSONLIGT BETYG</label>
+        <div class="rating-control">
+          <div class="rating-preview">
+            <span class="rating-stars" id="rating-preview-stars" style="--fill: 50%" aria-hidden="true">★★★★★</span>
+            <output id="rating-value" for="toilet-rating">2,5 / 5</output>
+          </div>
+          <input
+            id="toilet-rating"
+            name="rating"
+            type="range"
+            min="0"
+            max="5"
+            step="0.5"
+            value="2.5"
+            aria-describedby="rating-value"
+          />
+          <div class="rating-scale" aria-hidden="true"><span>0</span><span>5</span></div>
+        </div>
+
         <div class="dialog-actions">
           <button class="secondary-button" id="cancel-upload" type="button">AVBRYT</button>
           <button class="primary-button" type="submit">PUBLICERA LOKALT</button>
@@ -163,6 +182,10 @@
           <div>
             <p class="place-name"></p>
             <p class="review-date"></p>
+            <p class="personal-rating" hidden>
+              <span class="rating-stars" aria-hidden="true">★★★★★</span>
+              <span class="rating-number"></span>
+            </p>
           </div>
           <button class="like-button" type="button" aria-label="Gilla toaletten">
             <span class="heart" aria-hidden="true">♥</span>
