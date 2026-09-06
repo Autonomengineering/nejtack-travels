@@ -8,8 +8,6 @@ Ett mobilanpassat första utkast med tre vyer:
 
 ## Webbapp
 
-När GitHub Pages är aktiverat finns appen på:
-
 https://autonomengineering.github.io/nejtack-travels/
 
 ## Lagring

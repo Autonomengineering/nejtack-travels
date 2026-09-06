@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#a32118" />
+    <meta name="description" content="Resegängets mål, böner och toalett-topplista." />
+    <title>Grabbresan</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <div class="advert-bar" aria-label="Rullande reklambanner">
+        <div class="advert-track" aria-hidden="true">
+          <div class="advert-sequence"><span>NEJTACK IV</span><b>★</b><span>RESAN PÅGÅR</span><b>★</b><span>SARAJEVO 26'</span><b>★</b><span>NEJTACK TRAVELS</span><b>★</b><span>BÄNGEL-GARANTI</span></div>
+        </div>
+        <span class="sr-only">Nejtack IV, Resan pågår, Sarajevo 26, Nejtack Travels, Bängel-garanti</span>
+      </div>
+      <main>
+        <section class="page is-active" id="mal" data-page="mal" aria-labelledby="mal-title">
+          <div class="page-intro">
+            <p class="eyebrow">SARAJEVO 26'</p>
+            <h1 id="mal-title">NEJTACK TRAVELS</h1>
+            <p class="lead">Stora ambitioner. Tveksam disciplin. Varje avklarat mål är en seger för kollektivet.</p>
+          </div>
+
+          <form class="goal-form" id="goal-form">
+            <label class="sr-only" for="goal-input">Nytt mål</label>
+            <input id="goal-input" name="goal" maxlength="90" autocomplete="off" placeholder="Skriv ett nytt mål…" required />
+            <button type="submit" aria-label="Lägg till mål">+</button>
+          </form>
+
+          <div class="goal-meta" aria-live="polite">
+            <span id="goal-count">0 AV 0 AVKLARADE</span>
+            <button class="text-button" id="clear-completed" type="button">RENSA KLARA</button>
+          </div>
+          <ul class="goal-list" id="goal-list" aria-label="Resans mål"></ul>
+        </section>
+
+        <section class="page" id="bonpallen" data-page="bonpallen" aria-labelledby="bon-title" hidden>
+          <div class="page-intro compact">
+            <p class="eyebrow">SARAJEVO 26'</p>
+            <h1 id="bon-title">BÖNPALLEN</h1>
+          </div>
+
+          <aside class="prayer-notice" aria-label="Information om nästa tillbedjan">
+            <p>Här tillber vi våra reseledare var fjärde timme i riktning mot Brännland.</p>
+            <div class="prayer-countdown">
+              <span>NÄSTA TILLBEDJAN OM</span>
+              <time id="prayer-timer" role="timer" datetime="PT4H">04:00:00</time>
+            </div>
+          </aside>
+
+          <figure class="saint-card">
+            <img class="saint-image" src="assets/reseledare.jpg" alt="Den seniora och juniora reseledaren avbildade som helgon" loading="lazy" decoding="async" />
+          </figure>
+
+          <blockquote>
+            ”Ge dem styrka att leda oss, visdom att välja rätt mat, och tålmod när det ska kollas på stenar.”
+          </blockquote>
+          <p class="amen">AMEN.</p>
+        </section>
+
+        <section class="page" id="shitadvisor" data-page="shitadvisor" aria-labelledby="shit-title" hidden>
+          <div class="page-intro compact shit-heading">
+            <div>
+              <p class="eyebrow">SARAJEVO 26'</p>
+              <h1 id="shit-title">SHITADVISOR</h1>
+            </div>
+            <button class="camera-button" id="open-upload" type="button" aria-label="Lägg till ett toalettbesök">
+              <span aria-hidden="true">+</span>
+              LÄGG TILL
+            </button>
+          </div>
+
+          <p class="lead">Resans viktigaste recensioner.</p>
+          <div class="toilet-grid" id="toilet-grid"></div>
+          <div class="empty-state" id="toilet-empty" hidden>
+            <p>INGA PORSLINSTRONER ÄN.</p>
+            <button type="button" id="empty-upload">Lägg till den första</button>
+          </div>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Huvudnavigation">
+        <a href="#mal" data-nav="mal" class="is-active" aria-current="page">
+          <img class="nav-icon" src="assets/startsida.svg" alt="" aria-hidden="true" />
+          <span>STARTSIDA</span>
+        </a>
+        <a href="#bonpallen" data-nav="bonpallen">
+          <img class="nav-icon" src="assets/bonpallen.svg" alt="" aria-hidden="true" />
+          <span>BÖNPALLEN</span>
+        </a>
+        <a href="#shitadvisor" data-nav="shitadvisor">
+          <img class="nav-icon" src="assets/shitadvisor.svg" alt="" aria-hidden="true" />
+          <span>SHITADVISOR</span>
+        </a>
+      </nav>
+    </div>
+
+    <dialog id="upload-dialog">
+      <form id="upload-form" method="dialog">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">NY RECENSION</p>
+            <h2>DOKUMENTERA<br />TRONEN</h2>
+          </div>
+          <button class="dialog-close" id="close-upload" type="button" aria-label="Stäng">×</button>
+        </div>
+
+        <label class="file-drop" for="toilet-photo">
+          <input id="toilet-photo" name="photo" type="file" accept="image/*" required />
+          <span class="file-plus">+</span>
+          <strong id="file-label">VÄLJ TOALETTBILD</strong>
+          <small>JPG, PNG eller HEIC</small>
+        </label>
+
+        <label class="field-label" for="toilet-place">PLATS</label>
+        <input id="toilet-place" name="place" maxlength="60" placeholder="Ex. Bar Central, Prag" required />
+
+        <div class="dialog-actions">
+          <button class="secondary-button" id="cancel-upload" type="button">AVBRYT</button>
+          <button class="primary-button" type="submit">PUBLICERA LOKALT</button>
+        </div>
+        <p class="storage-note">Bilden sparas bara i den här webbläsaren i detta utkast.</p>
+      </form>
+    </dialog>
+
+    <dialog class="ad-dialog" id="ad-dialog" aria-labelledby="ad-title">
+      <div class="ad-poster">
+        <button class="ad-close" id="close-ad" type="button" aria-label="Stäng annons">×</button>
+        <div class="ad-logo-frame">
+          <img class="ad-logo" id="ad-logo" alt="" />
+        </div>
+        <p class="ad-category" id="ad-category"></p>
+        <h2 id="ad-title"></h2>
+        <p class="ad-copy" id="ad-copy"></p>
+        <div class="ad-stars" aria-hidden="true">★ ★ ★</div>
+        <p class="ad-offer" id="ad-offer"></p>
+        <p class="ad-disclaimer">ANNONS • RESULTAT KAN VARIERA • KLAGOMÅL BEHANDLAS EJ</p>
+      </div>
+    </dialog>
+
+    <template id="goal-template">
+      <li class="goal-item">
+        <label>
+          <input type="checkbox" />
+          <span class="custom-checkbox" aria-hidden="true"></span>
+          <span class="goal-text"></span>
+        </label>
+        <button class="delete-goal" type="button" aria-label="Ta bort mål">×</button>
+      </li>
+    </template>
+
+    <template id="toilet-template">
+      <article class="toilet-card">
+        <div class="photo-frame">
+          <img alt="" />
+          <span class="rank-badge"></span>
+        </div>
+        <div class="toilet-info">
+          <div>
+            <p class="place-name"></p>
+            <p class="review-date"></p>
+          </div>
+          <button class="like-button" type="button" aria-label="Gilla toaletten">
+            <span class="heart" aria-hidden="true">♥</span>
+            <span class="like-count"></span>
+          </button>
+        </div>
+      </article>
+    </template>
+  </body>
+</html>
