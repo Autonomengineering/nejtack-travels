@@ -1,10 +1,7 @@
-const GOALS_KEY = "grabbresan-goals-v1";
 const LIKES_KEY = "grabbresan-likes-v1";
-const DB_NAME = "grabbresan-local-media";
-const DB_VERSION = 1;
-const TOILET_STORE = "toilets";
 const PRAYER_TIMER_KEY = "grabbresan-prayer-deadline-v1";
 const PRAYER_CYCLE_MS = 4 * 60 * 60 * 1000;
+const PHOTO_BUCKET = "toilet-photos";
 
 const advertisers = [
   {
@@ -45,39 +42,97 @@ const advertisers = [
   },
 ];
 
+const config = window.NEJTACK_CONFIG || {};
+const supabaseClient = window.supabase?.createClient(config.supabaseUrl, config.supabasePublishableKey);
+
 let adTimer;
 let lastAdIndex = -1;
 let prayerDeadline = loadPrayerDeadline();
 
-const defaultGoals = [
-  "Alla ska hinna med flyget",
-  "Beställ något utan att veta vad det är",
-  "Ta ett gruppfoto före midnatt",
-];
-
 const state = {
-  goals: readJson(GOALS_KEY, defaultGoals.map((text, index) => ({ id: Date.now() + index, text, done: false }))),
+  goals: [],
   toilets: [],
   liked: new Set(readJson(LIKES_KEY, [])),
 };
 
 const storageAdapter = {
-  // Byt ut dessa tre metoder mot anrop till t.ex. Supabase när appen ska få delad lagring.
+  async listGoals() {
+    const { data, error } = await supabaseClient
+      .from("goals")
+      .select("id,text,done,position,created_at")
+      .order("position", { ascending: true });
+    if (error) throw error;
+    return data;
+  },
+
+  async addGoal(text) {
+    const lastPosition = state.goals.reduce((highest, goal) => Math.max(highest, Number(goal.position) || 0), 0);
+    const { error } = await supabaseClient.from("goals").insert({ text, position: lastPosition + 1 });
+    if (error) throw error;
+  },
+
+  async updateGoal(id, done) {
+    const { error } = await supabaseClient.from("goals").update({ done }).eq("id", id);
+    if (error) throw error;
+  },
+
+  async deleteGoal(id) {
+    const { error } = await supabaseClient.from("goals").delete().eq("id", id);
+    if (error) throw error;
+  },
+
+  async deleteCompletedGoals() {
+    const { error } = await supabaseClient.from("goals").delete().eq("done", true);
+    if (error) throw error;
+  },
+
   async listToilets() {
-    const db = await openDatabase();
-    return requestToPromise(db.transaction(TOILET_STORE, "readonly").objectStore(TOILET_STORE).getAll());
+    const { data, error } = await supabaseClient
+      .from("toilets")
+      .select("id,place,photo_path,rating,likes,created_at")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data.map(mapToilet);
   },
-  async addToilet(toilet) {
-    const db = await openDatabase();
-    await requestToPromise(db.transaction(TOILET_STORE, "readwrite").objectStore(TOILET_STORE).add(toilet));
-    return toilet;
+
+  async addToilet({ place, photo, rating }) {
+    const extension = (photo.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const photoPath = `${crypto.randomUUID()}.${extension}`;
+    const { error: uploadError } = await supabaseClient.storage
+      .from(PHOTO_BUCKET)
+      .upload(photoPath, photo, { contentType: photo.type || "image/jpeg", upsert: false });
+    if (uploadError) throw uploadError;
+
+    const { error: insertError } = await supabaseClient.from("toilets").insert({
+      place,
+      photo_path: photoPath,
+      rating,
+      likes: 0,
+    });
+
+    if (insertError) {
+      await supabaseClient.storage.from(PHOTO_BUCKET).remove([photoPath]);
+      throw insertError;
+    }
   },
-  async updateToilet(toilet) {
-    const db = await openDatabase();
-    await requestToPromise(db.transaction(TOILET_STORE, "readwrite").objectStore(TOILET_STORE).put(toilet));
-    return toilet;
+
+  async updateLikes(id, likes) {
+    const { error } = await supabaseClient.from("toilets").update({ likes }).eq("id", id);
+    if (error) throw error;
   },
 };
+
+function mapToilet(row) {
+  const { data } = supabaseClient.storage.from(PHOTO_BUCKET).getPublicUrl(row.photo_path);
+  return {
+    id: row.id,
+    place: row.place,
+    photoUrl: data.publicUrl,
+    rating: Number(row.rating),
+    likes: Number(row.likes),
+    createdAt: new Date(row.created_at).getTime(),
+  };
+}
 
 function readJson(key, fallback) {
   try {
@@ -86,10 +141,6 @@ function readJson(key, fallback) {
   } catch {
     return fallback;
   }
-}
-
-function saveGoals() {
-  localStorage.setItem(GOALS_KEY, JSON.stringify(state.goals));
 }
 
 function savePrayerDeadline() {
@@ -136,25 +187,6 @@ function updatePrayerTimer() {
   timer.dateTime = `PT${hours}H${minutes}M${seconds}S`;
 }
 
-function openDatabase() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(TOILET_STORE)) db.createObjectStore(TOILET_STORE, { keyPath: "id" });
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function requestToPromise(request) {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
 function route() {
   const requested = location.hash.replace("#", "") || "mal";
   const active = ["mal", "bonpallen", "shitadvisor"].includes(requested) ? requested : "mal";
@@ -192,15 +224,25 @@ function renderGoals() {
     text.textContent = goal.text;
     item.classList.toggle("is-done", goal.done);
 
-    checkbox.addEventListener("change", () => {
-      goal.done = checkbox.checked;
-      saveGoals();
-      renderGoals();
+    checkbox.addEventListener("change", async () => {
+      checkbox.disabled = true;
+      try {
+        await storageAdapter.updateGoal(goal.id, checkbox.checked);
+        await loadGoals();
+      } catch (error) {
+        checkbox.checked = goal.done;
+        reportConnectionError("Målets status kunde inte sparas.", error);
+      }
     });
-    remove.addEventListener("click", () => {
-      state.goals = state.goals.filter((entry) => entry.id !== goal.id);
-      saveGoals();
-      renderGoals();
+    remove.addEventListener("click", async () => {
+      remove.disabled = true;
+      try {
+        await storageAdapter.deleteGoal(goal.id);
+        await loadGoals();
+      } catch (error) {
+        remove.disabled = false;
+        reportConnectionError("Målet kunde inte tas bort.", error);
+      }
     });
     list.append(node);
   });
@@ -222,9 +264,8 @@ function renderToilets() {
     const node = template.content.cloneNode(true);
     const img = node.querySelector("img");
     const likeButton = node.querySelector(".like-button");
-    img.src = URL.createObjectURL(toilet.photo);
+    img.src = toilet.photoUrl;
     img.alt = `Toalett på ${toilet.place}`;
-    img.addEventListener("load", () => URL.revokeObjectURL(img.src), { once: true });
     node.querySelector(".rank-badge").textContent = `#${index + 1}`;
     node.querySelector(".place-name").textContent = toilet.place;
     node.querySelector(".review-date").textContent = new Intl.DateTimeFormat("sv-SE", { day: "numeric", month: "short", year: "numeric" }).format(toilet.createdAt);
@@ -241,11 +282,17 @@ function renderToilets() {
     likeButton.setAttribute("aria-label", `${state.liked.has(toilet.id) ? "Ta bort gilla-markering från" : "Gilla"} ${toilet.place}`);
     likeButton.addEventListener("click", async () => {
       const isLiked = state.liked.has(toilet.id);
-      toilet.likes = Math.max(0, toilet.likes + (isLiked ? -1 : 1));
-      isLiked ? state.liked.delete(toilet.id) : state.liked.add(toilet.id);
-      localStorage.setItem(LIKES_KEY, JSON.stringify([...state.liked]));
-      await storageAdapter.updateToilet(toilet);
-      renderToilets();
+      const nextLikes = Math.max(0, toilet.likes + (isLiked ? -1 : 1));
+      likeButton.disabled = true;
+      try {
+        await storageAdapter.updateLikes(toilet.id, nextLikes);
+        isLiked ? state.liked.delete(toilet.id) : state.liked.add(toilet.id);
+        localStorage.setItem(LIKES_KEY, JSON.stringify([...state.liked]));
+        await loadToilets();
+      } catch (error) {
+        likeButton.disabled = false;
+        reportConnectionError("Rösten kunde inte sparas.", error);
+      }
     });
     grid.append(node);
   });
@@ -294,21 +341,47 @@ function closeUpload() {
   updateRatingPreview();
 }
 
-document.querySelector("#goal-form").addEventListener("submit", (event) => {
+function reportConnectionError(message, error) {
+  console.error(message, error);
+  window.alert(`${message} Kontrollera anslutningen och försök igen.`);
+}
+
+async function loadGoals() {
+  state.goals = await storageAdapter.listGoals();
+  renderGoals();
+}
+
+async function loadToilets() {
+  state.toilets = await storageAdapter.listToilets();
+  renderToilets();
+}
+
+document.querySelector("#goal-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const input = document.querySelector("#goal-input");
+  const submit = event.currentTarget.querySelector("button[type='submit']");
   const text = input.value.trim();
   if (!text) return;
-  state.goals.push({ id: Date.now(), text, done: false });
-  input.value = "";
-  saveGoals();
-  renderGoals();
+  submit.disabled = true;
+  try {
+    await storageAdapter.addGoal(text);
+    input.value = "";
+    await loadGoals();
+  } catch (error) {
+    reportConnectionError("Målet kunde inte läggas till.", error);
+  } finally {
+    submit.disabled = false;
+  }
 });
 
-document.querySelector("#clear-completed").addEventListener("click", () => {
-  state.goals = state.goals.filter((goal) => !goal.done);
-  saveGoals();
-  renderGoals();
+document.querySelector("#clear-completed").addEventListener("click", async (event) => {
+  event.currentTarget.disabled = true;
+  try {
+    await storageAdapter.deleteCompletedGoals();
+    await loadGoals();
+  } catch (error) {
+    reportConnectionError("De avklarade målen kunde inte rensas.", error);
+  }
 });
 
 document.querySelector("#close-ad").addEventListener("click", () => adDialog.close());
@@ -331,13 +404,45 @@ uploadForm.addEventListener("submit", async (event) => {
   const photo = photoInput.files?.[0];
   const place = document.querySelector("#toilet-place").value.trim();
   const rating = ratingInput.valueAsNumber;
+  const submit = uploadForm.querySelector("button[type='submit']");
   if (!photo || !place) return;
-  const toilet = { id: crypto.randomUUID(), place, photo, rating, likes: 0, createdAt: Date.now() };
-  await storageAdapter.addToilet(toilet);
-  state.toilets.push(toilet);
-  closeUpload();
-  renderToilets();
+  submit.disabled = true;
+  submit.textContent = "PUBLICERAR…";
+  try {
+    await storageAdapter.addToilet({ place, photo, rating });
+    closeUpload();
+    await loadToilets();
+  } catch (error) {
+    reportConnectionError("Recensionen kunde inte publiceras.", error);
+  } finally {
+    submit.disabled = false;
+    submit.textContent = "PUBLICERA";
+  }
 });
+
+function subscribeToChanges() {
+  supabaseClient
+    .channel("shared-trip-updates")
+    .on("postgres_changes", { event: "*", schema: "public", table: "goals" }, () => loadGoals().catch(console.error))
+    .on("postgres_changes", { event: "*", schema: "public", table: "toilets" }, () => loadToilets().catch(console.error))
+    .subscribe();
+}
+
+async function startSharedData() {
+  if (!supabaseClient) {
+    document.querySelector("#toilet-empty p").textContent = "DATABASANSLUTNING SAKNAS.";
+    document.querySelector("#toilet-empty").hidden = false;
+    return;
+  }
+  try {
+    await Promise.all([loadGoals(), loadToilets()]);
+    subscribeToChanges();
+  } catch (error) {
+    console.error(error);
+    document.querySelector("#toilet-empty p").textContent = "KUNDE INTE ANSLUTA TILL RESEARKIVET.";
+    document.querySelector("#toilet-empty").hidden = false;
+  }
+}
 
 window.addEventListener("hashchange", route);
 route();
@@ -345,10 +450,4 @@ renderGoals();
 updateRatingPreview();
 updatePrayerTimer();
 window.setInterval(updatePrayerTimer, 250);
-storageAdapter.listToilets().then((toilets) => {
-  state.toilets = toilets;
-  renderToilets();
-}).catch(() => {
-  document.querySelector("#toilet-empty p").textContent = "LOKAL BILDLAGRING STÖDS INTE HÄR.";
-  document.querySelector("#toilet-empty").hidden = false;
-});
+startSharedData();

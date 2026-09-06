@@ -2,14 +2,36 @@
 
 Ett mobilanpassat första utkast med tre vyer:
 
-- **Mål med resan** – lägg till, bocka av och radera mål. Sparas i `localStorage`. En av fyra slumpade annonser visas efter en kort fördröjning varje gång startsidan öppnas.
-- **Bönpallen** – reseledarnas helgonbild och en nedräkning till nästa tillbedjan.
-- **Shitadvisor** – lägg till toalettbild och plats, och rösta med likes.
+- **Mål med resan** – lägg till, bocka av och radera mål. Ändringarna delas direkt med hela resegänget. En av fyra slumpade annonser visas efter en kort fördröjning varje gång startsidan öppnas.
+- **Bönpallen** – statisk plats för reseledarnas helgonbild.
+- **Shitadvisor** – lägg till toalettbild, plats och personligt betyg, och rösta med likes.
 
-## Webbapp
+## Testa lokalt
 
-https://autonomengineering.github.io/nejtack-travels/
+Appen är helt statisk och kräver ingen installation. Starta valfri lokal webbserver i mappen, till exempel:
 
-## Lagring
+```bash
+python3 -m http.server 8000
+```
 
-Mål sparas i `localStorage`. Toalettbilder och metadata sparas i webbläsarens IndexedDB, vilket betyder att innehållet är lokalt på samma enhet och webbläsare. För delning mellan flera personer behövs senare en extern lagringstjänst.
+Öppna sedan `http://localhost:8000`.
+
+## Publicera gratis med GitHub Pages
+
+1. Skapa ett nytt repository på GitHub.
+2. Lägg projektfilerna i repositoryts rot och pusha dem till grenen `main`.
+3. Öppna **Settings → Pages** på GitHub.
+4. Under **Build and deployment**, välj **Deploy from a branch**.
+5. Välj grenen `main`, mappen `/ (root)` och klicka **Save**.
+
+Efter någon minut visas länken till webbappen på samma sida.
+
+## Delad lagring
+
+Mål, toalettinlägg, betyg och likes sparas i Supabase och visas för alla som använder webbappen. Bilderna lagras i Supabase Storage. Appens publika anslutningsuppgifter finns i `config.js`; ingen hemlig servernyckel används i webbläsaren.
+
+Ingen inloggning krävs. Länken bör därför bara delas inom resegänget, eftersom alla som har den kan ändra innehållet.
+
+## Reseledarbild
+
+Helgonbilden finns i `assets/reseledare.jpg` och visas på Bönpallen. Ersätt filen med en ny bild med samma filnamn om den ska uppdateras senare.
