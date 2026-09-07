@@ -6,6 +6,7 @@
   --red: #a32118;
   --red-dark: #74140f;
   --line: #27231c;
+  --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -44,7 +45,8 @@ button { color: inherit; }
 }
 
 .advert-bar {
-  height: 40px;
+  height: calc(40px + var(--safe-top));
+  padding-top: var(--safe-top);
   overflow: hidden;
   display: flex;
   align-items: center;
