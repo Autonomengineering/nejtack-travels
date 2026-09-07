@@ -6,6 +6,8 @@ Ett mobilanpassat första utkast med tre vyer:
 - **Bönpallen** – statisk plats för reseledarnas helgonbild.
 - **Shitadvisor** – lägg till toalettbild, plats och personligt betyg, och rösta med likes.
 
+Webbappen kan läggas till på telefonens hemskärm som **NEJTACK TRAVELS** och använder projektets svartvita logotyp som appikon.
+
 ## Testa lokalt
 
 Appen är helt statisk och kräver ingen installation. Starta valfri lokal webbserver i mappen, till exempel:
