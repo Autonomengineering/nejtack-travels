@@ -1,10 +1,10 @@
-# Grabbresan
+# NEJTACK TRAVELS
 
 Ett mobilanpassat första utkast med tre vyer:
 
 - **Mål med resan** – lägg till, bocka av och radera mål. Ändringarna delas direkt med hela resegänget. En av fyra slumpade annonser visas efter en kort fördröjning varje gång startsidan öppnas.
 - **Bönpallen** – statisk plats för reseledarnas helgonbild.
-- **Shitadvisor** – lägg till toalettbild, plats och personligt betyg, och rösta med likes.
+- **Shitadvisor** – lägg till toalettbild, rubrik/plats, en kort recension och ett personligt betyg. Inlägg kan gillas och raderas efter en tydlig bekräftelse.
 
 Webbappen kan läggas till på telefonens hemskärm som **NEJTACK TRAVELS** och använder projektets svartvita logotyp som appikon.
 

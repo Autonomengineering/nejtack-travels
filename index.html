@@ -13,10 +13,10 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
-    <link rel="stylesheet" href="styles.css?v=safe-area" />
+    <link rel="stylesheet" href="styles.css?v=reviews-delete" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <script src="config.js" defer></script>
-    <script src="app.js" defer></script>
+    <script src="app.js?v=reviews-delete" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -113,7 +113,7 @@
         <div class="dialog-head">
           <div>
             <p class="eyebrow">NY RECENSION</p>
-            <h2>DOKUMENTERA<br />TRONEN</h2>
+            <h2>NYTT INLÄGG</h2>
           </div>
           <button class="dialog-close" id="close-upload" type="button" aria-label="Stäng">×</button>
         </div>
@@ -125,8 +125,11 @@
           <small>JPG, PNG eller HEIC</small>
         </label>
 
-        <label class="field-label" for="toilet-place">PLATS</label>
-        <input id="toilet-place" name="place" maxlength="60" placeholder="Ex. Bar Central, Prag" required />
+        <label class="field-label" for="toilet-place">RUBRIK &amp; PLATS</label>
+        <input id="toilet-place" name="place" maxlength="60" placeholder="Ex. Seniortoan, Umeå" required />
+
+        <label class="field-label" for="toilet-review">RECENSION</label>
+        <textarea id="toilet-review" name="review" maxlength="240" rows="3" placeholder="Skriv några väl valda ord om besöket…"></textarea>
 
         <label class="field-label" for="toilet-rating">PERSONLIGT BETYG</label>
         <div class="rating-control">
@@ -190,18 +193,34 @@
         <div class="toilet-info">
           <div>
             <p class="place-name"></p>
+            <p class="review-copy"></p>
             <p class="review-date"></p>
             <p class="personal-rating" hidden>
               <span class="rating-stars" aria-hidden="true">★★★★★</span>
               <span class="rating-number"></span>
             </p>
           </div>
-          <button class="like-button" type="button" aria-label="Gilla toaletten">
-            <span class="heart" aria-hidden="true">♥</span>
-            <span class="like-count"></span>
-          </button>
+          <div class="toilet-actions">
+            <button class="like-button" type="button" aria-label="Gilla toaletten">
+              <span class="heart" aria-hidden="true">♥</span>
+              <span class="like-count"></span>
+            </button>
+            <button class="delete-toilet" type="button">RADERA</button>
+          </div>
         </div>
       </article>
     </template>
+
+    <dialog id="delete-dialog" aria-labelledby="delete-title">
+      <div class="delete-confirmation">
+        <p class="eyebrow">SISTA VARNINGEN</p>
+        <h2 id="delete-title">RADERA INLÄGG?</h2>
+        <p>Är du säker på att du vill radera <strong id="delete-place"></strong>? Bilden och recensionen försvinner för hela resegänget.</p>
+        <div class="dialog-actions">
+          <button class="secondary-button" id="cancel-delete" type="button">AVBRYT</button>
+          <button class="danger-button" id="confirm-delete" type="button">JA, RADERA</button>
+        </div>
+      </div>
+    </dialog>
   </body>
 </html>

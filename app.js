@@ -89,13 +89,13 @@ const storageAdapter = {
   async listToilets() {
     const { data, error } = await supabaseClient
       .from("toilets")
-      .select("id,place,photo_path,rating,likes,created_at")
+      .select("id,place,review,photo_path,rating,likes,created_at")
       .order("created_at", { ascending: false });
     if (error) throw error;
     return data.map(mapToilet);
   },
 
-  async addToilet({ place, photo, rating }) {
+  async addToilet({ place, review, photo, rating }) {
     const extension = (photo.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
     const photoPath = `${crypto.randomUUID()}.${extension}`;
     const { error: uploadError } = await supabaseClient.storage
@@ -105,6 +105,7 @@ const storageAdapter = {
 
     const { error: insertError } = await supabaseClient.from("toilets").insert({
       place,
+      review,
       photo_path: photoPath,
       rating,
       likes: 0,
@@ -120,6 +121,14 @@ const storageAdapter = {
     const { error } = await supabaseClient.from("toilets").update({ likes }).eq("id", id);
     if (error) throw error;
   },
+
+  async deleteToilet(toilet) {
+    const { error } = await supabaseClient.from("toilets").delete().eq("id", toilet.id);
+    if (error) throw error;
+
+    const { error: photoError } = await supabaseClient.storage.from(PHOTO_BUCKET).remove([toilet.photoPath]);
+    if (photoError) console.warn("Inlägget raderades, men bildfilen kunde inte städas bort.", photoError);
+  },
 };
 
 function mapToilet(row) {
@@ -127,6 +136,8 @@ function mapToilet(row) {
   return {
     id: row.id,
     place: row.place,
+    review: row.review || "",
+    photoPath: row.photo_path,
     photoUrl: data.publicUrl,
     rating: Number(row.rating),
     likes: Number(row.likes),
@@ -264,10 +275,14 @@ function renderToilets() {
     const node = template.content.cloneNode(true);
     const img = node.querySelector("img");
     const likeButton = node.querySelector(".like-button");
+    const deleteButton = node.querySelector(".delete-toilet");
     img.src = toilet.photoUrl;
     img.alt = `Toalett på ${toilet.place}`;
     node.querySelector(".rank-badge").textContent = `#${index + 1}`;
     node.querySelector(".place-name").textContent = toilet.place;
+    const reviewCopy = node.querySelector(".review-copy");
+    reviewCopy.textContent = toilet.review;
+    reviewCopy.hidden = !toilet.review;
     node.querySelector(".review-date").textContent = new Intl.DateTimeFormat("sv-SE", { day: "numeric", month: "short", year: "numeric" }).format(toilet.createdAt);
     const personalRating = node.querySelector(".personal-rating");
     if (Number.isFinite(toilet.rating)) {
@@ -294,6 +309,8 @@ function renderToilets() {
         reportConnectionError("Rösten kunde inte sparas.", error);
       }
     });
+    deleteButton.setAttribute("aria-label", `Radera ${toilet.place}`);
+    deleteButton.addEventListener("click", () => openDeleteConfirmation(toilet));
     grid.append(node);
   });
 }
@@ -303,6 +320,9 @@ const uploadForm = document.querySelector("#upload-form");
 const photoInput = document.querySelector("#toilet-photo");
 const ratingInput = document.querySelector("#toilet-rating");
 const adDialog = document.querySelector("#ad-dialog");
+const deleteDialog = document.querySelector("#delete-dialog");
+const confirmDeleteButton = document.querySelector("#confirm-delete");
+let toiletPendingDeletion = null;
 
 function formatRating(rating) {
   return rating.toFixed(1).replace(".", ",").replace(",0", "");
@@ -339,6 +359,19 @@ function closeUpload() {
   uploadForm.reset();
   document.querySelector("#file-label").textContent = "VÄLJ TOALETTBILD";
   updateRatingPreview();
+}
+
+function openDeleteConfirmation(toilet) {
+  toiletPendingDeletion = toilet;
+  document.querySelector("#delete-place").textContent = toilet.place;
+  deleteDialog.showModal();
+}
+
+function closeDeleteConfirmation() {
+  toiletPendingDeletion = null;
+  deleteDialog.close();
+  confirmDeleteButton.disabled = false;
+  confirmDeleteButton.textContent = "JA, RADERA";
 }
 
 function reportConnectionError(message, error) {
@@ -399,17 +432,43 @@ photoInput.addEventListener("change", () => {
 });
 ratingInput.addEventListener("input", updateRatingPreview);
 
+document.querySelector("#cancel-delete").addEventListener("click", closeDeleteConfirmation);
+deleteDialog.addEventListener("click", (event) => {
+  if (event.target === deleteDialog) closeDeleteConfirmation();
+});
+deleteDialog.addEventListener("cancel", () => {
+  toiletPendingDeletion = null;
+});
+confirmDeleteButton.addEventListener("click", async () => {
+  if (!toiletPendingDeletion) return;
+  const toilet = toiletPendingDeletion;
+  confirmDeleteButton.disabled = true;
+  confirmDeleteButton.textContent = "RADERAR…";
+  try {
+    await storageAdapter.deleteToilet(toilet);
+    state.liked.delete(toilet.id);
+    localStorage.setItem(LIKES_KEY, JSON.stringify([...state.liked]));
+    closeDeleteConfirmation();
+    await loadToilets();
+  } catch (error) {
+    confirmDeleteButton.disabled = false;
+    confirmDeleteButton.textContent = "JA, RADERA";
+    reportConnectionError("Inlägget kunde inte raderas.", error);
+  }
+});
+
 uploadForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const photo = photoInput.files?.[0];
   const place = document.querySelector("#toilet-place").value.trim();
+  const review = document.querySelector("#toilet-review").value.trim();
   const rating = ratingInput.valueAsNumber;
   const submit = uploadForm.querySelector("button[type='submit']");
   if (!photo || !place) return;
   submit.disabled = true;
   submit.textContent = "PUBLICERAR…";
   try {
-    await storageAdapter.addToilet({ place, photo, rating });
+    await storageAdapter.addToilet({ place, review, photo, rating });
     closeUpload();
     await loadToilets();
   } catch (error) {
